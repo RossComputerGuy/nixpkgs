@@ -36,13 +36,21 @@ let
       {
         enableSharedLibraries = true;
       }
-      // lib.optionalAttrs (stdenv.targetPlatform.useLLVM or false) {
-        # Force LLVM to compile using clang + LLVM libs when targeting pkgsLLVM
-        stdenv = pkgSet.stdenv.override {
-          allowedRequisites = null;
-          cc = pkgSet.pkgsBuildHost.llvmPackages_19.clangUseLLVM;
-        };
-      }
+      //
+        lib.optionalAttrs
+          (
+            stdenv.targetPlatform.cc == "clang"
+            && stdenv.targetPlatform.cxxlib == "libcxx"
+            && stdenv.targetPlatform.rtlib == "compiler-rt"
+            && stdenv.targetPlatform.unwinderlib == "libunwind"
+          )
+          {
+            # Force LLVM to compile using clang + LLVM libs when targeting pkgsLLVM
+            stdenv = pkgSet.stdenv.override {
+              allowedRequisites = null;
+              cc = pkgSet.pkgsBuildHost.llvmPackages_19.clangUseLLVM;
+            };
+          }
     );
 in
 import ./default.nix
@@ -59,7 +67,14 @@ import ./default.nix
 
     # Expose llvmPackages used for rustc from rustc via passthru for LTO in Firefox
     llvmPackages =
-      if (stdenv.targetPlatform.useLLVM or false) then
+      if
+        (
+          stdenv.targetPlatform.cc == "clang"
+          && stdenv.targetPlatform.cxxlib == "libcxx"
+          && stdenv.targetPlatform.rtlib == "compiler-rt"
+          && stdenv.targetPlatform.unwinderlib == "libunwind"
+        )
+      then
         callPackage (
           {
             pkgs,
@@ -89,6 +104,7 @@ import ./default.nix
                 allowedRequisites = null;
                 cc = pkgsBuildHost.llvmPackages_19.clangNoLibcxx;
                 hostPlatform = stdenv.hostPlatform // {
+                  # TODO: replace once "useLLVM" is fully dropped
                   useLLVM = !stdenv.hostPlatform.isDarwin;
                 };
               };

@@ -66,7 +66,11 @@ let
   # `parsed` is inferred from args, both because there are two options with one
   # clearly preferred, and to prevent cycles. A simpler fixed point where the RHS
   # always just used `final.*` would fail on both counts.
-  elaborate = systemOrArgs: let
+  elaborate = systemOrArgs:
+    assert lib.assertMsg (!(lib.oldestSupportedReleaseIsAtLeast 2511 && systemOrArgs ? useLLVM)) "The useLLVM attribute has been deprecated in favor of the toolchain attributes.";
+    assert lib.assertMsg (!(lib.oldestSupportedReleaseIsAtLeast 2511 && systemOrArgs ? useArocc)) "The useArocc attribute has been deprecated in favor of the toolchain attributes.";
+    assert lib.assertMsg (!(lib.oldestSupportedReleaseIsAtLeast 2511 && systemOrArgs ? useZig)) "The useZig attribute has been deprecated in favor of the toolchain attributes.";
+    let
     allArgs = systemToAttrs systemOrArgs;
 
     # Those two will always be derived from "config", if given, so they should NOT
@@ -92,6 +96,21 @@ let
       isCompatible = _: throw "2022-05-23: isCompatible has been removed in favor of canExecute, refer to the 22.11 changelog for details";
       # Derived meta-data
       useLLVM = final.isFreeBSD || final.isOpenBSD;
+      useArocc = false;
+      useZig = false;
+
+      cc = if final.useLLVM then "clang"
+        else if final.useArocc then "arocc"
+        else if final.useZig then "zig"
+        else "gcc";
+
+      bintools = if final.useLLVM || final.useArocc || final.useZig || final.isDarwin then
+        "llvm"
+      else "gnu";
+
+      cxxlib =
+        /**/ if final.useLLVM || final.useArocc || final.useZig || final.isDarwin then "libcxx"
+        else "libstdcxx";
 
       libc =
         /**/ if final.isDarwin                then "libSystem"
@@ -112,6 +131,15 @@ let
         else if final.isNone                  then "newlib"
         # TODO(@Ericson2314) think more about other operating systems
         else                                     "native/impure";
+
+      unwinderlib =
+        /**/ if final.useLLVM || final.useArocc || final.useZig || final.isDarwin then "libunwind"
+        else "libgcc_s";
+
+      rtlib =
+        /**/ if final.useLLVM || final.useArocc || final.useZig || final.isDarwin then "compiler-rt"
+        else "libgcc";
+
       # Choose what linker we wish to use by default. Someday we might also
       # choose the C compiler, runtime library, C++ standard library, etc. in
       # this way, nice and orthogonally, and deprecate `useLLVM`. But due to
@@ -119,8 +147,8 @@ let
       # independently, so we are just doing `linker` and keeping `useLLVM` for
       # now.
       linker =
-        /**/ if final.useLLVM or false      then "lld"
-        else if final.isDarwin              then "cctools"
+        /**/ if final.useLLVM then "lld"
+        else if final.isDarwin then "cctools"
         # "bfd" and "gold" both come from GNU binutils. The existence of Gold
         # is why we use the more obscure "bfd" and not "binutils" for this
         # choice.
