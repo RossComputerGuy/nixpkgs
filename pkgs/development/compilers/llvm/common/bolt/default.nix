@@ -78,6 +78,8 @@ stdenv.mkDerivation (finalAttrs: {
     "dev"
   ];
 
+  setupHooks = [ ./setup-hook.sh ];
+
   meta = llvm_meta // {
     homepage = "https://github.com/llvm/llvm-project/tree/main/bolt";
     description = "LLVM post-link optimizer.";
