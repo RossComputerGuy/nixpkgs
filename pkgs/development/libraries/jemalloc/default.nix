@@ -60,6 +60,11 @@ stdenv.mkDerivation rec {
 
   enableParallelBuilding = true;
 
+  rejectSystemFeatures = lib.optionals stdenv.hostPlatform.isAarch64 [
+    "pages-32k"
+    "pages-64k"
+  ];
+
   meta = with lib; {
     homepage = "https://jemalloc.net/";
     description = "General purpose malloc(3) implementation";
